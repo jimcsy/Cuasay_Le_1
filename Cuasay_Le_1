@@ -1,0 +1,421 @@
+import os
+import time
+
+# Dictionary to store game library with their quantities and rental costs
+game_library = {
+    "Donkey Kong": {"quantity": 3, "cost": 2},
+    "Super Mario Bros": {"quantity": 5, "cost": 3},
+    "Tetris": {"quantity": 2, "cost": 1},
+    # Add more games as needed
+}
+
+# Dictionary to store user accounts with their balances and points
+user_accounts = {}
+
+# Admin account details
+admin_username = "admin"
+admin_password = "adminpass"
+
+def transaction_cancelled():
+    print("Transaction cancelled!")
+    time.sleep(1)
+
+# Function to display available games with their numbers and rental costs
+def display_available_games():
+    print("AVAILABLE GAMES: ")
+    start = 1
+    for game in game_library.keys():
+        quantity = game_library.get(game, {}).get("quantity")
+        cost = game_library.get(game, {}).get("cost")
+        if quantity >= 1:
+            print(f"{start}.) {game} \n\tQuantity:   {quantity} pc/s. \n\tCost:       {cost} $" )
+            start += 1
+
+# Function to register a new user
+def register_user():
+    os.system('cls')
+    print("REGISTRATION: ")
+    while True: 
+        username = input("Enter desired username: \t")
+        if username in user_accounts:
+            print("User found! Try to Log in")
+            time.sleep(2)
+            login_user()
+        else: 
+            password = input("Enter password: \t\t")
+
+            if check_credentials(username, password): 
+                user_accounts [username] = {"password" : password, "balance" : 0, "points" : 0, "inventory" : []}
+                print(f"TOP UP MONEY: ")
+                amount = input("Enter amount: \t") or " "
+
+                if amount == " ":
+                    transaction_cancelled()
+                elif top_up_account(username, amount):
+                    pass
+                    
+                logged_in_menu(username)
+
+def login_user():
+    os.system('cls')
+    print("LOG IN: ")
+    username = input("Enter username: \t")
+    if username in user_accounts:
+        password = input("Enter password: \t")
+        if password == user_accounts.get(username, {}).get("password"):
+            logged_in_menu(username)
+        else:
+            print("Credential doesn't match!")
+            time.sleep(1)
+            main()
+    else:
+        print("User not found! PLease register first.")
+        time.sleep(1)
+        main()
+
+
+# Function to rent a game
+def rent_game(username):
+    if user_accounts.get(username, {}).get('balance') == 0:
+        print("Your current balance is 0. Top up money first!")
+        time.sleep(1)
+        return
+    
+    #CHOOSING A GAME TO RENT
+    game_list = [game for game, data in game_library.items() if data.get("quantity", 0) >= 1]
+    while True:
+        os.system('cls')
+        print("RENT:")
+        display_available_games()
+        option = input("\nChoose a game to rent (number only): ") or " "
+        if option == " ":
+            transaction_cancelled()
+            logged_in_menu(username)
+        else:
+            option = int(option)
+            if 0 < option <= len(game_list):
+                chosen_game = game_list[option - 1]
+                print(f"How many {chosen_game} you want to rent? ")
+                quantity = input("Quantity: \t") or " "
+                if quantity == " ":
+                        transaction_cancelled()
+                        logged_in_menu(username)
+                elif int(quantity) <= game_library.get(chosen_game, {}).get("quantity"):
+                    cost = int(quantity) * game_library.get(chosen_game, {}).get("cost")
+                    user_balance = user_accounts.get(username, {}).get("balance")
+
+                    if cost > user_balance:
+                        print(f"You don't have enought balance to rent {quantity} pc/s. of '{chosen_game}'. ")
+                        time.sleep(2)
+                    else:
+                        user_accounts [username]["balance"] -= cost
+                        print(f"\nWe have deducted {float(cost):.2f} $ from your balance.")
+                        for x in range(int(quantity)):
+                            user_accounts [username]["inventory"].append(f"{chosen_game}")
+                        time.sleep(2)
+                        game_library [chosen_game]["quantity"] -= int(quantity)
+                        #Update Point
+                        points = 0
+                        while cost >= 2:
+                            cost -= 2
+                            points += 1
+                        if points != 0:
+                            print(f"You got {points} points from that transaction! Keep rented games safe!")
+                            user_accounts [username]["points"] += points
+                        
+                        time.sleep(3)
+                        logged_in_menu(username)
+
+                else:
+                    print("Not enough quantity in the inventory. Sorry!")
+                    time.sleep(1)
+                    os.system('cls')
+            else:
+                print("Choose a number only from the presented list!")
+                time.sleep(1)
+                os.system('cls')
+
+# Function to return a game
+def return_game(username):
+    while True:
+        os.system('cls')
+        print("RETURN GAMES: \n")
+        display_inventory(username)
+        option = input("\nChoose a game to return (number only): ") or " "
+        if option == " ":
+            transaction_cancelled()
+            logged_in_menu(username)
+        else:
+            inventory = set(user_accounts[username]["inventory"])
+            inventory = list(inventory)
+
+            option = int(option)
+            if 0 < option <= len(inventory):
+                chosen_game = inventory[option - 1]
+                print(f"How many {chosen_game} you want to return? ")
+                quantity = input("Quantity: \t") or " "
+                if quantity == " ":
+                        transaction_cancelled()
+                        logged_in_menu(username)
+                elif 0 < int(quantity) <= user_accounts[username]["inventory"].count(chosen_game):
+                    game_library[chosen_game]["quantity"] += int(quantity)
+                    for x in range(int(quantity)):
+                        user_accounts[username]["inventory"].remove(chosen_game)
+                    print(f"\n{quantity} pc/s. of '{chosen_game}' returned successfully. Thank you!")
+                    time.sleep(3)
+                    logged_in_menu(username)
+                else:
+                    print("The quantity you want to return doesn't match your inventory. Sorry!")
+                    time.sleep(2)
+            else:
+                print("Choose only from the list!")
+                time.sleep(1)
+
+# Function to top-up user account
+def top_up_account(username, amount):
+    current_balance = user_accounts.get(username, {}).get("balance")
+    while not amount.isdigit():
+        print("Enter valid amount only!")
+        time.sleep(1)
+        os.system('cls')
+        print(f"TOP UP MONEY:")
+        amount = input("Enter amount: ") or " "
+        if amount == " ":
+            transaction_cancelled()
+            logged_in_menu(username)
+    else:
+        user_accounts[username]["balance"] = float(amount) + current_balance
+        print("Successful!")
+        time.sleep(1)
+        return amount
+
+# Function to display user's inventory
+def display_inventory(username):
+    print(f"{username.upper()}'s INVENTORY")
+    if len(user_accounts[username]["inventory"]) > 0:
+        inventory = set(user_accounts[username]["inventory"])
+
+        start = 1
+        for game in inventory:
+            game_count = user_accounts[username]["inventory"].count(game)
+            print(f"{start}.) {game} \n\tQuantity: {game_count} pc/s.")
+            start += 1
+    else:
+        print("Inventory is empty, rent first!")
+        time.sleep(2)
+        logged_in_menu(username)
+
+# Function for admin to update game details
+def admin_update_game():
+    game_list = [game for game in game_library.keys()]
+    while True:
+        os.system('cls')
+        print("GAME UPDATE DETAILS: ")
+        game_list = [game for game in game_library.keys()]
+
+        start = 1
+        for game in game_list:
+            quantity = game_library.get(game, {}).get("quantity")
+            cost = game_library.get(game, {}).get("cost")
+            print(f"{start}.) {game} \n\tQuantity:   {quantity} pc/s. \n\tCost:       {cost} $" )
+            start += 1
+
+        option = input("\nChoose a game to edit (number only): ") or " "
+        if option == " ":
+            transaction_cancelled()
+        else:
+            option = int(option)
+            if 0 < option <= len(game_list):
+                chosen_game = game_list[option - 1]
+                print(f"\nNote: Leaving it blank will not change it's orinigal value.\n---EDITING GAME: {chosen_game.upper()}---")
+                quantity = input('-Quantity: \t') or game_library.get(chosen_game, {}).get("quantity")
+                game_library[chosen_game]["quantity"] = int(quantity)
+                cost = input("-Cost: \t\t") or game_library.get(chosen_game, {}).get("cost")
+                game_library[chosen_game]["cost"] = int(cost)
+
+                print("Successful!")
+                time.sleep(1)
+                admin_menu()
+            else:
+                print("Choose only from the list!")
+                time.sleep(1)
+
+# Function for admin login
+def admin_login():
+    while True:
+        os.system('cls')
+        print("ADMIN LOG IN:")
+        username = input("Enter username: \t")
+        password = input("Enter password: \t")
+        if username == admin_username and password == admin_password:
+            print("Successful!")
+            time.sleep(1)
+            admin_menu()
+        else:
+            print("\nWrong credentials. You're not an admin.")
+            time.sleep(3)
+            main()
+            
+# Admin menu
+def admin_menu():
+    while True:
+        try:
+            os.system('cls')
+            option = int(input("ADMIN's MENU: \n1.) Game Inventory \n2.) Game Update \n3.) Log out \n\nNumber only: \t"))
+            if option == 1:
+                os.system('cls')
+                display_game_inventory()
+                print("\nPress 'ENTER' key to go back...")
+                input()
+            elif option == 2: 
+                admin_update_game()
+            elif option == 3:
+                print("Logging out...")
+                time.sleep(1)
+                main()
+            else:
+                raise ValueError("Choose only from the list!")
+        except ValueError as e:
+            print("Error: ", e)
+            time.sleep(1)
+
+# Function for users to redeem points for a free game rental
+def redeem_free_rental(username):
+    points = user_accounts.get(username, {}).get("points")
+    if points < 3:
+        os.system('cls')
+        print("REDEEM POINTS")
+        print(f"You have {points} point/s, you need at least 3 to redeem.")
+        time.sleep(2)
+        logged_in_menu(username)
+    else:
+        game_list = [game for game, data in game_library.items() if data.get("quantity", 0) >= 1]
+        while True:
+            os.system('cls')
+            print("REDEEM POINTS:")
+            free_game = points // 3
+            print(f"You can choose {free_game} free game/s since you have {points} point/s: \n")
+        
+            display_available_games()
+            option = input("\nChoose a game for free (number only): ") or " "
+            if option == " ":
+                transaction_cancelled()
+                logged_in_menu(username)
+            else:
+                option = int(option)
+                if 0 < option <= len(game_list):
+                    chosen_game = game_list[option - 1]
+                    game_library [chosen_game]["quantity"] -= 1
+                    user_accounts [username]["points"] -= 3 
+                    user_accounts [username]["inventory"].append(f"{chosen_game}")
+
+                    print(f"\nCongrats! '{chosen_game}' 1 pc. for you {username}!")
+                    time.sleep(3)
+                    logged_in_menu(username)
+                else:
+                    print("Choose only from the list!")
+                    time.sleep(1)
+                    os.system('cls')
+
+# Function to display game inventory
+def display_game_inventory():
+    print("GAME INVENTORY: ")
+    user_list = [user for user, data in user_accounts.items() if len(data.get("inventory", 0)) > 1]
+    if len(user_list) > 0:
+        for user in user_list:
+            games = set(user_accounts.get(user, {}).get("inventory"))
+            print(f"\nRented by {user}: ")
+            for game in games:
+                count = user_accounts.get(user, {}).get("inventory").count(game)
+                print(f"-- {game} ({count} pc/s.) ")
+    print(f"\nGames: ")
+    for game in game_library.keys():
+        quantity = game_library.get(game, {}).get("quantity")
+        if quantity == 0:
+            print(f"-- {game} ({quantity} pc/s.)\t\t \n\t(UNAVAILABLE)\n" )
+        else: 
+            print(f"-- {game} ({quantity} pc/s.)\t\t \n\t(AVAILABLE)\n")
+
+# Function to handle user's logged-in menu
+def logged_in_menu(username):
+    while True:
+        try:
+            os.system('cls')
+            print(f"MENU: \nGOOD DAY, {username.upper()}!\n")
+            option = int(input("1.) Rent \n2.) View available games \n3.) Return games \n4.) Top up money "
+                               "\n5.) Display inventory \n6.) Redeem Points \n7.) Log out \n\nNumber only: \t"))
+            if option == 1:
+                rent_game(username)
+            elif option == 2:
+                os.system("cls")
+                display_available_games()
+                print("\nPress 'ENTER' key to go back...")
+                input()
+            elif option == 3: 
+                return_game(username)
+            elif option == 4:
+                os.system('cls')
+                print(f"TOP UP MONEY: ")
+                print(f"Your current balance is {user_accounts.get(username, {}).get('balance')}")
+                amount = input('\nEnter amount: \t') or " "
+                if amount == " ":
+                    transaction_cancelled()
+                    logged_in_menu(username)
+                else:
+                    top_up_account(username, amount)
+            elif option == 5:
+                os.system("cls")
+                display_inventory(username)
+                print("\nPress 'ENTER' key to go back...")
+                input()
+            elif option == 6: 
+                redeem_free_rental(username)
+            elif option == 7:
+                print("Logging out...")
+                time.sleep(1)
+                main()
+            else:
+                raise ValueError("Choose only from the list!")
+        except ValueError as e:
+            print("Error: ", e)
+            time.sleep(1)
+
+# Function to check user credentials
+def check_credentials(username, password):
+    if len(username) < 8 or len(password) < 8:
+        print('Username and password should be at least 8 characters long.')
+        time.sleep(1)
+        register_user()
+    else: 
+        print("Well done! \n\nBefore registering it, top up money first. \nPress 'ENTER' key to continue or any key + 'ENTER' to void...")
+        if input().isalnum():
+            transaction_cancelled()
+            main()
+        os.system('cls')
+        return True
+    
+# Main function to run the program
+def main():
+    while True:
+        try: 
+            os.system('cls')
+            option = int(input("WELCOME TO THE GAME RENTAL SERVICE! \n1.) Register \n2.) Log in \n3.) Admin \n4.) Exit \n\nEnter number only:  \t"))
+            if option == 1:
+                if register_user():
+                    break
+            elif option == 2: 
+                login_user()
+            elif option == 3: 
+                admin_login()
+            elif option == 4:
+                print("Thank you for using our system!")
+                time.sleep(1) 
+                exit()
+            else:
+                raise ValueError("Choose only from the list!")
+        except ValueError as e:
+            print("Error: ", e)
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
